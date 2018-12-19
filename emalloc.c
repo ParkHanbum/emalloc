@@ -41,6 +41,7 @@ static void append_chunk_to_freelist(pChunk p)
 		root->size = 0;
 		root->prev = NULL;
 		root->next = NULL;
+		free_list[size] = root;
 	} else {
 		root = free_list[size];
 	}
@@ -86,6 +87,8 @@ static int expand_pool_ifnecessary(uint32_t size)
 		 gPool->remain <= size + MEM_CHUNK_SIZE))
 	{
 		new_pool = malloc(MEM_POOL_SIZE);
+		// clear memory space explicitly.
+		memset(new_pool, MEM_POOL_SIZE, 0);
 		// expand pool with executable permission
 		// TODO : make executable new allocated memory space.
 		p = sbrk(EXPAND_POOL_SIZE);
@@ -158,7 +161,14 @@ void emfree(void *addr)
 	append_chunk_to_freelist(p);
 }
 
+/*
+ *	it is depends on OS policy that whether
+ *	new allocated memory space will be initialized.
+ *	so, it must be cleared in explicitly.
+ */
 static void __attribute__((constructor)) init()
 {
 	free_list = malloc(MEM_CHUNK_SIZE * 64);
+	// clear memory space explicitly.
+	memset(free_list, MEM_CHUNK_SIZE * 64, 0);
 }
