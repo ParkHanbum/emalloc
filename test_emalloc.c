@@ -4,10 +4,13 @@
 #include <assert.h>
 #include <stdbool.h>
 #include "emalloc.h"
+#include "utils/utils.h"
+#include "utils/list.h"
 
 #define ASSERT(TEST) if((TEST)) asm("int $3");
 
 extern pPool gPool;
+extern struct list_head gPools;
 extern pChunk* free_list;
 
 void print_node_reverse(pChunk node, bool reverse)
@@ -30,6 +33,14 @@ void print_pool_from_last(void *p)
 {
 	pChunk node = (pChunk)(p - MEM_CHUNK_SIZE);
 	print_node_reverse(node, true);
+}
+
+void print_pool_info()
+{
+	pPool entry;
+	list_for_each_entry(entry, &gPools, list) {
+		printf("%p\n", entry->address);
+	}
 }
 
 void print_pool()
