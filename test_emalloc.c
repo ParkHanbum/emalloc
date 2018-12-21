@@ -64,7 +64,6 @@ int main()
 	}
 	print_pool();
 
-
 	/*
 	for(i = 0;i < 0xFFFFFF;i++) {
 		size = get_alloc_size();

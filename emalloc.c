@@ -78,24 +78,27 @@ fin:
 static int expand_pool_ifnecessary(uint32_t size)
 {
 	void *p;
+	pPool new_pool;
 	uint32_t increased_size;
 
 	if (gPool == NULL ||
 		(gPool->address == NULL ||
 		 gPool->remain <= size + MEM_CHUNK_SIZE))
 	{
-		gPool = malloc(MEM_POOL_SIZE);
+		new_pool = malloc(MEM_POOL_SIZE);
 		// expand pool with executable permission
+		// TODO : make executable new allocated memory space.
 		p = sbrk(EXPAND_POOL_SIZE);
 		if (p < 0) {
 			printf("EXPAND FAILED\n");
 			return -1;
 		}
-		gPool->address = p;
 		increased_size = sbrk(0) - p;
-
-		gPool->size += increased_size;
-		gPool->remain += increased_size;
+		new_pool->address = p;
+		new_pool->size = increased_size;
+		new_pool->remain = increased_size;
+		list_add(&new_pool->list, &gPools);
+		gPool = new_pool;
 	}
 
 	return 0;
