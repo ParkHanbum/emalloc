@@ -5,75 +5,52 @@
 #include <string.h>
 #include "emalloc.h"
 
-static void remove_chunk_from_freelist(pChunk p)
+
+static void append_addr_to_freelist(void *addr)
 {
-	uint32_t size = p->size;
-	pChunk node, prev, next;
+	pFreeChunk root, next;
+	pChunk curr = ADDR_TO_CHUNK(addr);
+	uint32_t size = curr->size;
 
 	if (free_list[size] == NULL) {
-		printf("Something wrong \n"); exit(1);
-	}
-
-	node = free_list[size];
-	while(node) {
-		node = node->next;
-
-		if (!memcmp(node, p, MEM_CHUNK_SIZE)) {
-			prev = node->next;
-			next = node->prev;
-			if (prev != NULL) {
-				prev->next = next;
-			}
-			if (next != NULL) {
-				next->prev = prev;
-			}
-		}
-	}
-}
-
-static void append_chunk_to_freelist(pChunk p)
-{
-	uint32_t size = p->size;
-	pChunk root, next;
-
-	if (free_list[size] == NULL) {
-		root = (pChunk)malloc(MEM_CHUNK_SIZE);
-		root->size = 0;
-		root->prev = NULL;
-		root->next = NULL;
+		root = (pFreeChunk)malloc(FREE_CHUNK_SIZE);
+		INIT_LIST_HEAD(&root->list);
 		free_list[size] = root;
 	} else {
 		root = free_list[size];
 	}
 
-	next = root->next;
-	if (next != NULL) {
-		p->next = next;
-		p->prev = root;
+	pFreeChunk el = malloc(FREE_CHUNK_SIZE);
+	el->addr = curr;
 
-		root->next = p;
-		next->prev = p;
-	} else {
-		root->next = p;
-		p->prev = root;
-	}
+	list_add(&el->list, &root->list);
+	assert((void *)el->list.prev == (void *)root
+		&& (void *)root->list.next == (void *)el);
 }
 
 static void *find_chunk_in_freelist(uint32_t size)
 {
-	pChunk node;
+	pFreeChunk root;
+	pChunk res;
 
-	node = free_list[size];
-	if (node == NULL)
-		goto fin;
+	root = free_list[size];
+	if (root == NULL)
+		return NULL;
 
-	node = node->next;
-	if (node != NULL && size == node->size)
-		return node + MEM_CHUNK_SIZE;
+	pFreeChunk p = list_next_entry(root, list);
 
-fin:
-	return NULL;
+	// root node
+	if ((p - root) == 0)
+		return NULL;
 
+	assert(p->addr != NULL);
+
+	// remove chunk from freelist
+	list_del(&p->list);
+	res = p->addr;
+	free(p);
+
+	return CHUNK_TO_ADDR(res);
 }
 
 static int expand_pool_ifnecessary(uint32_t size)
@@ -100,10 +77,11 @@ static int expand_pool_ifnecessary(uint32_t size)
 		new_pool->address = p;
 		new_pool->size = increased_size;
 		new_pool->remain = increased_size;
-		list_add(&new_pool->list, &gPools);
 		gPool = new_pool;
+		list_add(&gPool->list, &gPools);
 	}
 
+	assert(gPool != NULL);
 	return 0;
 }
 
@@ -117,15 +95,19 @@ static void *create_new_chunk(uint32_t size)
 		printf("expand failed\n"); exit(1);
 	}
 
+	assert(gPool != NULL);
 	p = gPool->address + gPool->pos;
+
+	// make initialize node
+	if (current_node == NULL)
+		current_node = p;
+
 	(*(pChunk)p).size = size;
 	(*(pChunk)p).prev = current_node;
-	(*(pChunk)p).next = NULL;
-
-	if (current_node != NULL)
-		current_node->next = p;
+	(*(pChunk)p).next = p;
 
 	// keep current node to link next.
+	current_node->next = p;
 	current_node = p;
 
 	allocated_size = MEM_CHUNK_SIZE + size;
@@ -150,15 +132,15 @@ void *emalloc(uint32_t size)
 	if (p == NULL)
 		p = create_new_chunk(size);
 
+	assert(p != NULL && ADDR_TO_CHUNK(p)->size != 0);
 	return p;
 }
 
 void emfree(void *addr)
 {
-	if (addr == NULL)
-		return;
-	pChunk p = (pChunk)(addr - MEM_CHUNK_SIZE);
-	append_chunk_to_freelist(p);
+	assert(addr != NULL);
+	assert(ADDR_TO_CHUNK(addr)->size != 0);
+	append_addr_to_freelist(addr);
 }
 
 /*
@@ -168,7 +150,10 @@ void emfree(void *addr)
  */
 static void __attribute__((constructor)) init()
 {
-	free_list = malloc(MEM_CHUNK_SIZE * 64);
+	free_list = malloc(FREE_CHUNK_SIZE * 64);
+	gPools.next = &gPools;
+	gPools.prev = &gPools;
 	// clear memory space explicitly.
 	memset(free_list, MEM_CHUNK_SIZE * 64, 0);
 }
+
