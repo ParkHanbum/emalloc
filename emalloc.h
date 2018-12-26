@@ -77,5 +77,3 @@ void *emalloc(uint32_t size);
 void emfree(void *addr);
 
 struct list_head* get_pools();
-
-

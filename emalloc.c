@@ -156,4 +156,3 @@ static void __attribute__((constructor)) init()
 	// clear memory space explicitly.
 	memset(free_list, MEM_CHUNK_SIZE * 64, 0);
 }
-

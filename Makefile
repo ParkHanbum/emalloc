@@ -1,6 +1,9 @@
 
-test_emalloc:
-	gcc -g test_emalloc.c emalloc.c -o $@
+SRCS := emalloc.c test_emalloc.c
+SRCS += utils/hashmap.c
+
+test_emalloc: $(SRCS)
+	gcc -g $^ -o $@
 
 all:
 	$(MAKE) test_emalloc 
