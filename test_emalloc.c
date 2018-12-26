@@ -10,7 +10,7 @@
 #include "utils/hashmap.h"
 
 #define ASSERT(TEST) if((TEST)) asm("int $3");
-#define TEST_COUNT	0x5000
+#define TEST_COUNT	0x60000
 
 extern pPool gPool;
 extern struct list_head gPools;
